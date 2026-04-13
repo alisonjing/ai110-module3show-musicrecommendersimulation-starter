@@ -324,7 +324,9 @@ score = genre_score   (0.25)
 + energy_score  (0.25)
 + acoustic_score(0.15)
 + valence_score (0.15)
+
 ─────────────────────
+
 max possible: 1.00
 
 
@@ -370,3 +372,23 @@ For the test user (`favorite_genre="pop"`, `favorite_mood="happy"`,
 
 This satisfies `test_recommend_returns_songs_sorted_by_score` which asserts
 `results[0].genre == "pop"` and `results[0].mood == "happy"`.
+
+### Step 3: Mapping the Logic
+## Math-Based Scoring Rule for Numerical Features
+
+### The Core Problem
+
+A naïve rule like "higher energy = better score" breaks immediately:
+- User wants energy ≈ 0.40 (chill study session)
+- Song A: energy = 0.42 → perfect match
+- Song B: energy = 0.91 → terrible match, but a "higher is better" rule ranks
+  it first
+
+You need a rule that **rewards closeness**, not magnitude.
+
+---
+
+### The Building Block: Absolute Distance
+
+Start with the raw distance between a song's feature and the user's target:
+
