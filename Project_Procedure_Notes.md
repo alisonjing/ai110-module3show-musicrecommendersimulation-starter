@@ -508,7 +508,7 @@ Score
 0.2 │            ●●●
 
     │
-    
+
 0.0 └──────────────────────────────────────▶ distance
      0.0    0.2    0.4    0.6    0.8    1.0
 
@@ -691,3 +691,254 @@ UserProfile
     │
     ▼
  [song_1 (0.91), song_3 (0.78), ...]  ← returned to user
+
+
+ ### Phase 2: Designing the Simulation
+
+Expanded Dataset — 8 New Songs
+
+#### New Entries
+
+| ID | Title            | Artist          | Genre     | Mood        | Energy | BPM | Valence | Danceability | Acousticness |
+|----|------------------|-----------------|-----------|-------------|--------|-----|---------|--------------|--------------|
+| 11 | Gold Rush Flow   | Chain Reaction  | hip-hop   | energetic   | 0.78   | 95  | 0.72    | 0.85         | 0.12         |
+| 12 | Morning Sonata   | Clara Voss      | classical | peaceful    | 0.22   | 66  | 0.75    | 0.32         | 0.97         |
+| 13 | Iron Curtain     | Gravefield      | metal     | angry       | 0.96   | 160 | 0.30    | 0.55         | 0.04         |
+| 14 | Velvet Hours     | Sable & June    | r&b       | romantic    | 0.55   | 88  | 0.68    | 0.76         | 0.42         |
+| 15 | Empty Highway    | Dusty Reins     | country   | melancholic | 0.45   | 96  | 0.38    | 0.51         | 0.74         |
+| 16 | Porch Light      | The Hollow Oaks | folk      | nostalgic   | 0.31   | 84  | 0.62    | 0.44         | 0.91         |
+| 17 | Pulse City       | Wavefront       | edm       | euphoric    | 0.95   | 128 | 0.85    | 0.94         | 0.03         |
+| 18 | 3AM Blues        | Earl Mosswood   | blues     | melancholic | 0.48   | 76  | 0.35    | 0.49         | 0.66         |
+
+---
+
+#### Coverage Added
+
+| Dimension | Before                                          | After (new)                                          |
+|-----------|-------------------------------------------------|------------------------------------------------------|
+| **Genre** | pop, lofi, rock, ambient, jazz, synthwave, indie pop | + hip-hop, classical, metal, r&b, country, folk, edm, blues |
+| **Mood**  | happy, chill, intense, moody, focused, relaxed  | + energetic, peaceful, angry, romantic, melancholic, nostalgic, euphoric |
+
+---
+
+#### Design Rationale per Song
+
+- **Gold Rush Flow** (hip-hop, energetic) — high danceability + mid-energy;
+  fills the rhythmic-but-not-aggressive quadrant missing from the starter set
+- **Morning Sonata** (classical, peaceful) — lowest energy (0.22) and highest
+  acousticness (0.97) in the dataset; anchors the calm/acoustic extreme
+- **Iron Curtain** (metal, angry) — highest tempo (160 BPM) and near-lowest
+  valence (0.30); distinct from rock "intense" which has higher valence (0.48)
+- **Velvet Hours** (r&b, romantic) — mid-energy, high danceability, moderate
+  acousticness; covers the smooth/groovy space no starter song occupies
+- **Empty Highway** (country, melancholic) — low valence (0.38), moderate
+  acousticness; the only song pairing low positivity with an acoustic texture
+- **Porch Light** (folk, nostalgic) — very high acousticness (0.91), low
+  energy; similar texture to lofi but organic/storytelling rather than ambient
+- **Pulse City** (edm, euphoric) — highest danceability (0.94) in full dataset;
+  distinct from pop "intense" by having even higher valence (0.85) alongside
+  near-maximum energy
+- **3AM Blues** (blues, melancholic) — low valence (0.35), mid acousticness;
+  shares melancholic mood with country but with a different sonic texture and
+  feel — slower, heavier, more acoustic-electric
+
+---
+
+#### Update Tempo Normalization Bounds
+
+Song #13 (Iron Curtain) has `tempo_bpm = 160`, exceeding the original max of 152.
+Update the normalization formula in your scoring code:
+
+```python
+# Before
+tempo_normalized = (song.tempo_bpm - 60) / (152 - 60)
+
+# After (reflects full expanded dataset range)
+tempo_normalized = (song.tempo_bpm - 60) / (160 - 60)
+
+## Suggested New Numerical Features
+
+### Existing Feature Gaps
+
+The current five numerical features cover two axes well:
+
+- **Intensity axis:** `energy`, `tempo_bpm`
+- **Texture axis:** `acousticness`, `danceability`
+- **Emotion axis:** `valence`
+
+What's missing: **vocal character**, **sonic density**, **rhythmic feel**,
+and **tonal color** — all of which strongly shape how a song is experienced.
+
+---
+
+#### Recommended New Features
+
+---
+
+#### 1. `instrumentalness` · range [0.0, 1.0]
+
+Measures how much of the track is purely instrumental vs. vocal-led.
+
+| Value     | Meaning                                    |
+|-----------|--------------------------------------------|
+| 0.0 – 0.2 | Vocals are prominent (pop, r&b, hip-hop)   |
+| 0.3 – 0.6 | Vocals present but not dominant            |
+| 0.7 – 1.0 | Mostly instrumental (classical, lofi, ambient) |
+
+**Why add it:** `acousticness` tells you *how* a song sounds (organic vs.
+electronic) but not *who* is speaking. A hip-hop track and a jazz vocal
+ballad can share the same acousticness score but feel completely different.
+`instrumentalness` splits them cleanly.
+
+**Complements:** `acousticness` — together they define vocal texture  
+**UserProfile field to add:** `prefers_instrumental: bool`
+
+**Sample values for existing songs:**
+
+| Song                 | instrumentalness |
+|----------------------|-----------------|
+| Morning Sonata       | 0.94            |
+| Focus Flow           | 0.88            |
+| Spacewalk Thoughts   | 0.82            |
+| Gold Rush Flow       | 0.08            |
+| Sunrise City         | 0.04            |
+| 3AM Blues            | 0.35            |
+
+---
+
+#### 2. `speechiness` · range [0.0, 1.0]
+
+Measures presence of spoken words or rap-style delivery.
+
+| Value     | Meaning                                      |
+|-----------|----------------------------------------------|
+| 0.0 – 0.3 | Music only, few or no spoken elements        |
+| 0.3 – 0.6 | Mix of speech and music (some rap, podcasts) |
+| 0.6 – 1.0 | Heavily spoken (rap, spoken word, audiobook) |
+
+**Why add it:** `instrumentalness` captures absence of vocals;
+`speechiness` captures the *type* of vocals. A sung pop track and a rap
+track can both score low on `instrumentalness` but feel completely
+different. This is the only feature that separates sung from rapped.
+
+**Complements:** `instrumentalness`  
+**UserProfile field to add:** `likes_rap: bool`
+
+**Sample values:**
+
+| Song             | speechiness |
+|------------------|-------------|
+| Gold Rush Flow   | 0.72        |
+| Night Drive Loop | 0.05        |
+| Coffee Shop Stories | 0.06     |
+| 3AM Blues        | 0.08        |
+
+---
+
+#### 3. `liveness` · range [0.0, 1.0]
+
+Detects presence of audience noise or live-performance character.
+
+| Value     | Meaning                            |
+|-----------|------------------------------------|
+| 0.0 – 0.3 | Studio recording                   |
+| 0.3 – 0.6 | Live-feeling but likely studio     |
+| 0.6 – 1.0 | Clearly recorded live with audience|
+
+**Why add it:** None of the current features distinguish a polished studio
+track from a raw live recording. Two jazz tracks with identical energy and
+acousticness can feel totally different if one has crowd noise and room
+ambiance. This feature unlocks "live session" and "concert energy" playlist
+contexts.
+
+**Complements:** `acousticness` and `energy`  
+**UserProfile field to add:** `likes_live_recordings: bool`
+
+**Sample values:**
+
+| Song                | liveness |
+|---------------------|----------|
+| Coffee Shop Stories | 0.62     |
+| 3AM Blues           | 0.55     |
+| Pulse City          | 0.12     |
+| Morning Sonata      | 0.08     |
+
+---
+
+#### 4. `bass_heaviness` · range [0.0, 1.0]
+
+Measures low-frequency emphasis — how "heavy" or "boomy" the bottom end is.
+
+| Value     | Meaning                                        |
+|-----------|------------------------------------------------|
+| 0.0 – 0.3 | Thin or treble-forward (folk, classical)       |
+| 0.3 – 0.6 | Balanced mix                                   |
+| 0.6 – 1.0 | Bass-heavy (hip-hop, edm, metal, r&b)          |
+
+**Why add it:** `energy` measures intensity but not *where* that intensity
+lives in the frequency spectrum. A classical orchestra and a hip-hop track
+can share the same energy score but have completely opposite sonic weight.
+Bass heaviness also directly influences physical listening experience —
+headphones, car speakers, subwoofers.
+
+**Complements:** `energy` and `acousticness`  
+**UserProfile field to add:** `target_bass: float`
+
+**Sample values:**
+
+| Song           | bass_heaviness |
+|----------------|----------------|
+| Gold Rush Flow | 0.85           |
+| Pulse City     | 0.82           |
+| Iron Curtain   | 0.78           |
+| Morning Sonata | 0.18           |
+| Porch Light    | 0.22           |
+
+---
+
+#### 5. `brightness` · range [0.0, 1.0]
+
+Measures high-frequency spectral energy — how "bright," "airy," or "sharp"
+a song sounds.
+
+| Value     | Meaning                                          |
+|-----------|--------------------------------------------------|
+| 0.0 – 0.3 | Warm, dark, muffled (lofi, blues, some ambient)  |
+| 0.3 – 0.6 | Neutral, balanced tone                           |
+| 0.6 – 1.0 | Crisp, bright, sharp (pop, EDM, some classical)  |
+
+**Why add it:** The current feature set has no proxy for tonal color.
+Two songs can match on every existing feature but one feels warm and
+analog while the other feels sharp and digital. `brightness` also
+distinguishes lofi (intentionally muffled) from hi-fi electronic music —
+a distinction `acousticness` cannot make since both can be electronic.
+
+**Complements:** `acousticness`, `energy`  
+**UserProfile field to add:** `target_brightness: float`
+
+**Sample values:**
+
+| Song             | brightness |
+|------------------|------------|
+| Pulse City       | 0.88       |
+| Sunrise City     | 0.74       |
+| Midnight Coding  | 0.22       |
+| Library Rain     | 0.18       |
+| 3AM Blues        | 0.30       |
+
+---
+
+### Priority Ranking
+
+| Priority | Feature            | Biggest gain                              |
+|----------|--------------------|-------------------------------------------|
+| 1        | `instrumentalness` | Separates vocals from no vocals           |
+| 2        | `speechiness`      | Separates singing from rapping            |
+| 3        | `bass_heaviness`   | Adds spectral weight dimension            |
+| 4        | `brightness`       | Adds tonal color dimension                |
+| 5        | `liveness`         | Adds recording context (studio vs. live)  |
+
+---
+
+
+

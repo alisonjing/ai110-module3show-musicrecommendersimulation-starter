@@ -19,6 +19,32 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
+### My Understanding of Real-World Recommendations and What My Version Prioritizes
+
+Real-world recommendation systems like Spotify's Discover Weekly or YouTube's
+suggested videos are hybrid engines that combine two approaches: collaborative
+filtering, which surfaces content based on the behavior of users with similar
+taste profiles, and content-based filtering, which compares the intrinsic
+attributes of items such as tempo, energy, genre to a user's stated or inferred
+preferences. At scale, these systems layer on NLP-mined cultural signals, neural
+audio embeddings, and real-time behavioral feedback like skips and saves to
+continuously refine what "relevant" means for each individual listener. The
+result is a system that can simultaneously make safe, familiar recommendations
+and genuinely surprising cross-genre discoveries.
+
+My version operates on a much smaller, transparent scale and deliberately
+prioritizes **explainability over surprise**. Rather than learning patterns
+from user behavior across thousands of listeners, it scores each song directly
+against a user profile using a set of interpretable rules: genre and mood
+matching for categorical fit, and Gaussian distance scoring on continuous
+features like energy, valence, and acousticness to reward proximity over raw
+magnitude. This means every recommendation can be traced back to a specific
+reason why "this song matched your energy target and mood preference", which
+makes the system easier to reason about, debug, and extend. The tradeoff is
+intentional: without behavioral data, the system cannot discover songs a user
+would not think to ask for, but it reliably surfaces songs that fit the vibe
+a user is actively seeking.
+
 Explain your design in plain language.
 
 Some prompts to answer:
