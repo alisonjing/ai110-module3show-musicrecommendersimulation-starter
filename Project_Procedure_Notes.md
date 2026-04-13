@@ -490,18 +490,17 @@ still pretty good" with a smooth falloff.
 
 Score
 1.0 │●  ← all rules agree: perfect match = 1.0
-│ ●●
+    │ ●●
 0.8 │   ●●  ← Gaussian drops faster early
-│     ●●
+    │     ●●
 0.6 │  Linear ───────────────────────────
-│       ●● Gaussian
+    │       ●● Gaussian
 0.4 │         ●●
-│  Squared ════════════════════════
+    │  Squared ════════════════════════
 0.2 │            ●●●
-│
+    │
 0.0 └──────────────────────────────────────▶ distance
-0.0    0.2    0.4    0.6    0.8    1.0
-
+     0.0    0.2    0.4    0.6    0.8    1.0
 
 
 | Rule     | Scores near-matches | Punishes outliers | Complexity |
