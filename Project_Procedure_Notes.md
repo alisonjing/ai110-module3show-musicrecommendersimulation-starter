@@ -602,3 +602,83 @@ Each call returns a value in (0, 1]. Multiply by the feature's weight and sum
 to get the final composite score.
 
 
+## Why You Need Both a Scoring Rule and a Ranking Rule
+
+---
+
+### The Short Answer
+
+A **Scoring Rule** answers: *"How well does this one song fit this user?"*  
+A **Ranking Rule** answers: *"Given all the scores, which songs should I show first?"*
+
+One without the other is incomplete:
+- Scoring without ranking → you have numbers but no ordered list to return
+- Ranking without scoring → you have nothing meaningful to sort by
+
+---
+
+### The Analogy: Judges and a Leaderboard
+
+Think of a cooking competition:
+- Each **judge** scores a dish on taste, presentation, and creativity → **Scoring Rule**
+- The **leaderboard** sorts all dishes by total score and picks the top 3 → **Ranking Rule**
+
+The judge's job and the leaderboard's job are separate responsibilities.
+Your recommender works the same way.
+
+---
+
+### What Each Rule Does in Your Code
+
+#### Scoring Rule — operates on one song at a time
+
+```python
+# Runs once per song, returns a single float
+def score_song(song: dict, user_prefs: dict) -> float:
+    energy_score = 1.0 - abs(song["energy"] - user_prefs["energy"])
+    genre_bonus  = 0.25 if song["genre"] == user_prefs["genre"] else 0.0
+    mood_bonus   = 0.20 if song["mood"]  == user_prefs["mood"]  else 0.0
+    return energy_score + genre_bonus + mood_bonus
+
+Input:  one Song + one UserProfile
+
+Output: one float (e.g., 0.87)
+
+Knows nothing about other songs — it only evaluates the song in front of it.
+
+#### Ranking Rule — operates on the full scored list
+
+```python
+# Runs once on the full catalog, returns ordered results
+def recommend_songs(user_prefs: dict, songs: list, k: int = 5):
+    scored = [(song, score_song(song, user_prefs)) for song in songs]
+    ranked = sorted(scored, key=lambda x: x[1], reverse=True)
+    return ranked[:k]
+
+nput:  list of (song, score) pairs
+
+Output: top-k songs in descending score order
+
+Knows nothing about how scores were computed — it only sorts what it receives.
+
+UserProfile
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│  Scoring Rule (runs N times)            │
+│  score_song(song_1, user) → 0.91        │
+│  score_song(song_2, user) → 0.43        │
+│  score_song(song_3, user) → 0.78        │
+│           ...                           │
+└─────────────────────────────────────────┘
+    │
+    │  List of (song, score) pairs
+    ▼
+┌─────────────────────────────────────────┐
+│  Ranking Rule (runs once)               │
+│  sort descending by score               │
+│  take top k                             │
+└─────────────────────────────────────────┘
+    │
+    ▼
+ [song_1 (0.91), song_3 (0.78), ...]  ← returned to user
