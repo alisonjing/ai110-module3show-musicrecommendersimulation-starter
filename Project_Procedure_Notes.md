@@ -392,3 +392,213 @@ You need a rule that **rewards closeness**, not magnitude.
 
 Start with the raw distance between a song's feature and the user's target:
 
+distance = | song.energy - user.target_energy |
+
+
+
+| Song              | energy | target | distance |
+|-------------------|--------|--------|----------|
+| Focus Flow        | 0.40   | 0.40   | 0.00     ← perfect
+| Midnight Coding   | 0.42   | 0.40   | 0.02     ← very close
+| Sunrise City      | 0.82   | 0.40   | 0.42     ← far
+| Storm Runner      | 0.91   | 0.40   | 0.51     ← very far
+
+Distance alone is not a score — bigger distance should mean *lower* score.
+
+---
+
+### Rule 1: Linear Penalty (simplest)
+
+Flip the distance into a score by subtracting from 1:
+
+score = 1.0 - | song.energy - user.target_energy |
+
+
+
+**Properties:**
+- Perfect match (distance = 0.00) → score = 1.00
+- Worst possible mismatch (distance = 1.00) → score = 0.00
+- Every 0.10 of distance costs exactly 0.10 of score
+
+**Worked example (target = 0.40):**
+
+| Song           | energy | distance | score  |
+|----------------|--------|----------|--------|
+| Focus Flow     | 0.40   | 0.00     | 1.00   |
+| Midnight Coding| 0.42   | 0.02     | 0.98   |
+| Sunrise City   | 0.82   | 0.42     | 0.58   |
+| Storm Runner   | 0.91   | 0.51     | 0.49   |
+
+Simple and interpretable. Use this as your default.
+
+---
+
+### Rule 2: Squared Penalty (punishes outliers harder)
+
+score = 1.0 - (song.energy - user.target_energy) ** 2
+
+
+
+**Why squared?** A song that's 0.50 away is penalized 4× more than one that's
+0.25 away — outliers are pushed down aggressively, near-matches are protected.
+
+**Worked example (target = 0.40):**
+
+| Song           | energy | distance | distance² | score  |
+|----------------|--------|----------|-----------|--------|
+| Focus Flow     | 0.40   | 0.00     | 0.0000    | 1.000  |
+| Midnight Coding| 0.42   | 0.02     | 0.0004    | 0.999  |
+| Sunrise City   | 0.82   | 0.42     | 0.1764    | 0.824  |
+| Storm Runner   | 0.91   | 0.51     | 0.2601    | 0.740  |
+
+Note how near-matches (0.02 away) are barely penalized, while far songs drop
+noticeably. Good when you care more about getting great matches than avoiding
+mediocre ones.
+
+---
+
+### Rule 3: Gaussian / Bell Curve (the "fuzzy match")
+
+score = exp( -( (song.energy - user.target_energy) ** 2 ) / (2 * σ²) )
+
+
+
+`σ` (sigma) is your **tolerance**: how forgiving the rule is.
+
+| σ value | Behavior                                      |
+|---------|-----------------------------------------------|
+| 0.10    | Tight — only songs within ~0.10 score well    |
+| 0.20    | Moderate — songs within ~0.20 score well      |
+| 0.30    | Loose — wide range of energies are acceptable |
+
+**Worked example (target = 0.40, σ = 0.20):**
+
+| Song           | energy | distance | score  |
+|----------------|--------|----------|--------|
+| Focus Flow     | 0.40   | 0.00     | 1.000  |
+| Midnight Coding| 0.42   | 0.02     | 0.999  |
+| Sunrise City   | 0.82   | 0.42     | 0.411  |
+| Storm Runner   | 0.91   | 0.51     | 0.278  |
+
+The bell curve drops off naturally — no clipping, no negative scores, always
+in (0, 1]. This is the most musically intuitive rule because "pretty close is
+still pretty good" with a smooth falloff.
+
+---
+
+### Side-by-Side Comparison (target = 0.40)
+
+Score
+1.0 │●  ← all rules agree: perfect match = 1.0
+│ ●●
+0.8 │   ●●  ← Gaussian drops faster early
+│     ●●
+0.6 │  Linear ───────────────────────────
+│       ●● Gaussian
+0.4 │         ●●
+│  Squared ════════════════════════
+0.2 │            ●●●
+│
+0.0 └──────────────────────────────────────▶ distance
+0.0    0.2    0.4    0.6    0.8    1.0
+
+
+
+| Rule     | Scores near-matches | Punishes outliers | Complexity |
+|----------|---------------------|-------------------|------------|
+| Linear   | Moderately          | Moderately        | Lowest     |
+| Squared  | Generously          | Aggressively      | Low        |
+| Gaussian | Generously          | Gradually         | Medium     |
+
+---
+
+### Recommendation for Your Project
+
+**Start with the linear rule** — it maps cleanly to what the test expects
+and requires no extra imports:
+
+```python
+def score_energy(song_energy: float, target_energy: float) -> float:
+    return 1.0 - abs(song_energy - target_energy)
+Upgrade to Gaussian once the basic logic works, for more natural scoring:
+
+
+import math
+
+def score_energy(song_energy: float, target_energy: float, sigma: float = 0.20) -> float:
+    distance = song_energy - target_energy
+    return math.exp(-(distance ** 2) / (2 * sigma ** 2))
+
+### Applying the Scoring Pattern to All Numerical Features
+
+The same distance-based formula works for every numerical feature.
+Swap the field name and choose an appropriate σ (tolerance).
+
+---
+
+#### Feature Tolerance Table
+
+| Feature        | Suggested σ       | Why                                               |
+|----------------|-------------------|---------------------------------------------------|
+| `energy`       | 0.20              | Primary axis, moderate tolerance                  |
+| `valence`      | 0.20              | Emotion — similar tolerance to energy             |
+| `acousticness` | 0.25              | Wider tolerance; texture is fuzzier               |
+| `tempo_bpm`    | normalize first   | Raw range 60–152, must convert to [0, 1] first    |
+
+---
+
+#### Why `tempo_bpm` Must Be Normalized First
+
+All other features already live on a [0, 1] scale, so a distance of 0.20
+means the same thing across `energy`, `valence`, and `acousticness`.
+
+`tempo_bpm` does not — its raw values range from 60 to 152 BPM. Without
+normalization, a distance of 0.20 BPM is nearly zero, while a distance of
+20 BPM is enormous. The formula would be measuring apples and oranges.
+
+**Normalization maps any value in the dataset's range to [0, 1]:**
+
+tempo_normalized = (song.tempo_bpm - min_bpm) / (max_bpm - min_bpm)
+
+
+
+For this dataset (min = 60, max = 152):
+
+```python
+tempo_normalized  = (song.tempo_bpm - 60) / (152 - 60)
+target_normalized = (user_target_bpm - 60) / (152 - 60)
+score             = 1.0 - abs(tempo_normalized - target_normalized)
+Worked example:
+
+Song	tempo_bpm	tempo_normalized	target = 80 BPM → 0.217	distance	score
+Library Rain	72	0.130	0.217	0.087	0.913
+Midnight Coding	78	0.196	0.217	0.022	0.978
+Focus Flow	80	0.217	0.217	0.000	1.000
+Sunrise City	118	0.630	0.217	0.413	0.587
+Storm Runner	152	1.000	0.217	0.783	0.217
+Reusable Python Pattern
+Apply this template to any feature by changing the variable names:
+
+
+import math
+
+def score_feature(song_value: float, target_value: float, sigma: float = 0.20) -> float:
+    """Gaussian scoring: rewards closeness, never goes negative."""
+    distance = song_value - target_value
+    return math.exp(-(distance ** 2) / (2 * sigma ** 2))
+
+def normalize_tempo(bpm: float, min_bpm: float = 60, max_bpm: float = 152) -> float:
+    """Maps raw BPM onto [0, 1] before scoring."""
+    return (bpm - min_bpm) / (max_bpm - min_bpm)
+Usage:
+
+
+score_energy      = score_feature(song.energy,      user.target_energy,  sigma=0.20)
+score_valence     = score_feature(song.valence,      target_valence,      sigma=0.20)
+score_acousticness= score_feature(song.acousticness, target_acousticness, sigma=0.25)
+score_tempo       = score_feature(normalize_tempo(song.tempo_bpm),
+                                  normalize_tempo(user_target_bpm),       sigma=0.20)
+Each call returns a value in (0, 1]. Multiply by the feature's weight and sum
+to get the final composite score.
+
+
