@@ -119,3 +119,52 @@ These describe **what a song is made of**:
 
 **Float features** (`energy`, `tempo_bpm`, `valence`, `danceability`, `acousticness`) are ideal for computing a **distance or similarity score**.
 **String fields** (`genre`, `mood`) work as **exact-match or category-match** signals.
+
+### Step 2: Identify Key Features
+
+1. Examine the data/songs.csv file to see the available attributes for your simulator, such as genre, mood, energy, and tempo_bpm.
+
+Available Features in `songs.csv`
+
+| Feature        | Type        | Range / Values                                      |
+|----------------|-------------|-----------------------------------------------------|
+| `genre`        | Categorical | pop, lofi, rock, ambient, jazz, synthwave, indie pop |
+| `mood`         | Categorical | happy, chill, intense, moody, focused, relaxed       |
+| `energy`       | Float       | 0.28 – 0.93                                         |
+| `tempo_bpm`    | Float       | 60 – 152                                            |
+| `valence`      | Float       | 0.48 – 0.84                                         |
+| `danceability` | Float       | 0.41 – 0.88                                         |
+| `acousticness` | Float       | 0.05 – 0.92                                         |
+
+---
+
+**Feature Recommendations by Priority**
+
+**Tier 1 — Most Effective (primary similarity dimensions)**
+
+- **`energy`** — Widest spread in the dataset; cleanly separates songs by
+  intensity. Compare *Spacewalk Thoughts* (0.28) vs *Gym Hero* (0.93). The
+  single best numeric discriminator.
+- **`valence`** — Measures emotional positivity. Distinguishes *Sunrise City*
+  (0.84, sunny pop) from *Night Drive Loop* (0.49, moody synthwave). Pairs with
+  energy to form a 2D mood plane.
+- **`acousticness`** — Separates organic/acoustic textures (*Library Rain*: 0.86)
+  from electronic/produced ones (*Gym Hero*: 0.05). Strong proxy for sonic
+  texture without relying on genre labels.
+
+**Tier 2 — Good Supporting Features**
+
+- **`danceability`** — Useful, but partially correlated with energy. Best used as
+  a tiebreaker rather than a primary axis.
+- **`tempo_bpm`** — Objective and meaningful (60 BPM lofi vs. 152 BPM rock), but
+  must be **normalized to [0, 1]** before computing similarity since its raw
+  scale dwarfs the other features.
+
+**Tier 3 — Use Cautiously**
+
+- **`mood`** — High-signal categorical label, but brittle. "Chill" spans lofi,
+  ambient, and jazz — very different sonic contexts. Best used as a **hard
+  filter**, not a distance metric.
+- **`genre`** — Too coarse for nuanced similarity. Works as an optional filter
+  but should not be the primary matching axis.
+
