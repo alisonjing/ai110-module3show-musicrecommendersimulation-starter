@@ -113,6 +113,14 @@ return top k          default k = 5 recommendations
 
 ---
 
+## Sample Output
+
+Top 5 recommendations for the default `pop / happy / 0.8` user profile:
+
+![Top 5 Songs](top_5_songs.png)
+
+---
+
 ## Getting Started
 
 ### Setup

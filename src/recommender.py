@@ -83,9 +83,11 @@ class Recommender:
     Required by tests/test_recommender.py
     """
     def __init__(self, songs: List[Song]):
+        """Store the song catalog for use by recommend and explain_recommendation."""
         self.songs = songs
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
+        """Return the top-k Song objects ranked by score against the given UserProfile."""
         user_prefs = {
             "genre":  user.favorite_genre,
             "mood":   user.favorite_mood,
@@ -104,6 +106,7 @@ class Recommender:
         return [song for song, _ in scored[:k]]
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
+        """Return a human-readable string describing why song was recommended for user."""
         user_prefs = {
             "genre":  user.favorite_genre,
             "mood":   user.favorite_mood,
