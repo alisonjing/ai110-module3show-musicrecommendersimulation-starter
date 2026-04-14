@@ -248,10 +248,9 @@ Read and complete `model_card.md`:
 
 [**Model Card**](model_card.md)
 
-Write 1 to 2 paragraphs here about what you learned:
+Building this recommender made it clear that turning data into predictions is really a series of design choices disguised as math. Every feature in a song genre, mood, energy only matters as much as the weight assigned to it. The scoring formula does not "understand" music; it converts attributes into numbers and adds them up. What makes a recommendation feel right or wrong is not the algorithm itself but the decisions baked into it: which features to include, how much each one counts, and what to do when a feature is missing or unrecognized. When genre carried twice the weight of everything else combined, the system confidently returned an intense rock song to a user who asked for something calm and quiet not because the code was broken, but because the weights said genre mattered more than vibe. Real systems like Spotify or YouTube face the same fundamental problem at a much larger scale: they are still adding weighted signals, just with millions of behavioral data points and neural embeddings filling in where explicit rules fall short.
 
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
+The bias and fairness risks in this kind of system are harder to see precisely because the output looks personalized and reasonable. The clearest failure here was what could be called the "single-song genre trap": because most genres in the catalog had only one representative song, any user who preferred a niche genre was guaranteed that one song as their top result regardless of mood or energy. Specificity of taste was punished rather than rewarded. A second, subtler problem was silent failure when a user typed a mood label that did not exist in the catalog, the system produced no warning and simply ignored the mood signal entirely, returning results as if mood had never been requested. In a real product, these patterns can accumulate into systemic unfairness: users whose tastes are underrepresented in the training data consistently receive worse recommendations, and they are never told why. The model does not know it is failing them. It just keeps returning the best match it can find within a catalog that was never built with their preferences in mind.
 
 
 ---
