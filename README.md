@@ -59,6 +59,12 @@ You can include a simple diagram or bullet list if helpful.
 
 ---
 
+## System Diagram
+
+![UML Diagram](UML_Diagram.png)
+
+---
+
 ## Getting Started
 
 ### Setup
