@@ -339,6 +339,19 @@ Examples:
 
 You do not need a numeric metric, but if you used one, explain what it measures.
 
+
+A few things stand out with mood disabled:
+
+High-Energy Pop — Gym Hero and Sunrise City lead correctly on genre+energy. But Storm Runner (rock/intense) and Iron Curtain (metal/angry) appear at #3–#5 purely on energy proximity — no mood check means aggressive metal ranks alongside upbeat pop.
+
+Chill Lofi — Top 3 are all lofi, which feels right. But Porch Light (folk/nostalgic) and Spacewalk Thoughts (ambient/chill) creep into #4–#5 over mood-matched lofi songs, again purely on energy.
+
+Deep Intense Rock — Storm Runner correctly leads. However positions #2–#5 are a mix of pop, hip-hop, and indie pop with no rock or intense mood — they're there only because their energy is near 0.85.
+
+Late-Night Synthwave — Night Drive Loop leads well. But 3AM Blues, Empty Highway, and Velvet Hours fill the rest — none are synthwave or moody, just mid-energy songs. Without mood, the "late-night" atmosphere is completely lost.
+
+Bottom line: With mood disabled, the system becomes a pure genre+energy matcher. It works when those two signals are strong, but loses all vibe/atmosphere filtering — especially visible in Synthwave and Rock where mood was doing meaningful work to separate "intense rock" from "any high-energy song."
+
 ---
 
 ## 8. Future Work

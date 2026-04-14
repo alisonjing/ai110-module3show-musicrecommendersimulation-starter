@@ -37,11 +37,11 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
 
     Algorithm Recipe
     ────────────────
-    Rule 1 — Genre match  : +2.0  if song["genre"] == user_prefs["genre"]
-    Rule 2 — Mood match   : +1.0  if song["mood"]  == user_prefs["mood"]
-    Rule 3 — Energy score : 1.0 - abs(song["energy"] - user_prefs["energy"])
-                            (0.0 → completely opposite, 1.0 → perfect match)
-    Max possible          : 4.0
+    Rule 1 — Genre match  : +1.0  if song["genre"] == user_prefs["genre"]  (halved from 2.0)
+    Rule 2 — Mood match   : DISABLED (sensitivity test — mood contributes 0.0 to every score)
+    Rule 3 — Energy score : 2.0 * (1.0 - abs(song["energy"] - user_prefs["energy"]))
+                            (0.0 → completely opposite, 2.0 → perfect match)
+    Max possible          : 3.0  (genre 1.0 + mood 0.0 + energy 2.0)
 
     Returns
     ───────
@@ -52,22 +52,24 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     """
     reasons: List[str] = []
 
-    # Rule 1 — Genre match (+2.0)
+    # Rule 1 — Genre match (+1.0, halved from original 2.0)
     if song["genre"] == user_prefs["genre"]:
-        genre_score = 2.0
+        genre_score = 1.0
         reasons.append(f"genre match (+{genre_score})")
     else:
         genre_score = 0.0
 
-    # Rule 2 — Mood match (+1.0)
-    if song["mood"] == user_prefs["mood"]:
-        mood_score = 1.0
-        reasons.append(f"mood match (+{mood_score})")
-    else:
-        mood_score = 0.0
+    # Rule 2 — Mood match (+1.0) — TEMPORARILY DISABLED for sensitivity test
+    # (mood is excluded as a signal to observe how rankings change without it)
+    # if song["mood"] == user_prefs["mood"]:
+    #     mood_score = 1.0
+    #     reasons.append(f"mood match (+{mood_score})")
+    # else:
+    #     mood_score = 0.0
+    mood_score = 0.0  # sensitivity test: mood contributes 0 points to every song
 
-    # Rule 3 — Energy similarity (continuous, 0.0–1.0)
-    energy_score = 1.0 - abs(song["energy"] - user_prefs["energy"])
+    # Rule 3 — Energy similarity (doubled weight, 0.0–2.0)
+    energy_score = 2.0 * (1.0 - abs(song["energy"] - user_prefs["energy"]))
     reasons.append(
         f"energy score {energy_score:.2f} "
         f"(target {user_prefs['energy']:.2f}, song {song['energy']:.2f})"
