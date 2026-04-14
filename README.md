@@ -45,17 +45,65 @@ intentional: without behavioral data, the system cannot discover songs a user
 would not think to ask for, but it reliably surfaces songs that fit the vibe
 a user is actively seeking.
 
-Explain your design in plain language.
+### Song Features
 
-Some prompts to answer:
+Each `Song` carries these attributes used for scoring:
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+| Feature | Type | Role |
+|---|---|---|
+| `genre` | string | Categorical match against user preference |
+| `mood` | string | Categorical match against user preference |
+| `energy` | float (0–1) | Continuous proximity to user's target energy |
+| `valence` | float (0–1) | Emotional positivity — not scored directly, available for extension |
+| `danceability` | float (0–1) | Rhythm suitability — available for extension |
+| `acousticness` | float (0–1) | Organic vs. electronic texture — available for extension |
+| `tempo_bpm` | float | Raw BPM — available for extension after normalization |
 
-You can include a simple diagram or bullet list if helpful.
+### User Profile
+
+A `UserProfile` stores three preference fields used by the scoring rules:
+
+- `favorite_genre` — the genre the user wants prioritized
+- `favorite_mood` — the mood label the user is seeking
+- `target_energy` — a float (0–1) representing how intense or calm the user wants songs to feel
+
+### Scoring Recipe
+
+Every song in the catalog is judged by the same three rules. Scores are raw points, not percentages:
+
+```
+score = genre_score + mood_score + energy_score
+
+  genre_score   = 2.0  if song.genre == user.favorite_genre  else 0.0
+  mood_score    = 1.0  if song.mood  == user.favorite_mood   else 0.0
+  energy_score  = 1.0 - abs(song.energy - user.target_energy)
+
+  Max possible  = 4.0
+```
+
+Genre carries the most weight (2.0) because it is the strongest single signal of listening intent. Mood adds refinement within a genre. Energy similarity provides a continuous score — a song 0.02 away from the target scores nearly as well as a perfect match, while a song 0.50 away is meaningfully penalized.
+
+### Data Flow
+
+```
+songs.csv (18 rows)
+    │
+    ▼
+load_songs()          cast all numeric fields to float
+    │
+    ▼
+for song in songs:    score every song against the UserProfile
+    │  _score_song()  → genre + mood + energy points
+    │  _build_explanation() → human-readable reason string
+    ▼
+scored list           18 (song, score, explanation) tuples
+    │
+    ▼
+sort descending       highest score first
+    │
+    ▼
+return top k          default k = 5 recommendations
+```
 
 ---
 
