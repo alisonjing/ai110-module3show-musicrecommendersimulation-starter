@@ -940,5 +940,179 @@ a distinction `acousticness` cannot make since both can be electronic.
 
 ---
 
+## Defining the Simulation Taste Profile
+
+---
+
+### The Profile: "Late Night Focus Session"
+
+A student or developer winding down after work — wants music that maintains
+mental clarity without being distracting, with a slight emotional warmth.
+Not looking for silence, not looking for a party.
+
+---
+
+### `UserProfile` Instance
+
+```python
+user = UserProfile(
+    favorite_genre  = "lofi",
+    favorite_mood   = "focused",
+    target_energy   = 0.42,
+    likes_acoustic  = True,
+)
 
 
+### Step 3: Sketch the Recommendation Logic
+
+Algorithm Recipe: Music Recommender Scoring System
+
+---
+
+#### Overview
+
+For every song in the catalog, the recommender computes a **composite score**
+between 0.0 and 1.0 by applying five rules in sequence. Songs are then sorted
+descending by score and the top-`k` are returned with an explanation string.
+
+---
+
+#### Step 1 — Load Inputs
+
+```python
+Inputs:
+  user_profile  →  { favorite_genre, secondary_genre, favorite_mood,
+                     target_energy, target_acousticness, target_valence }
+  songs         →  list of 18 Song objects loaded from songs.csv
+  k             →  number of results to return (default: 5)
+
+Step 2 — Score Each Song (runs N times, once per song)
+Five rules contribute to the final score. Each rule returns a partial score;
+the sum is the song's total score.
+
+Rule 1 — Genre Match · weight 0.25 · categorical
+
+if song.genre == user.favorite_genre   → +0.25
+if song.genre == user.secondary_genre  → +0.10
+else                                   → +0.00
+Why: Genre is the coarsest filter of listening intent. The secondary genre
+bonus prevents the recommender from ignoring acoustically similar genres
+(e.g., a jazz song for a lofi user) just because the label differs.
+
+Rule 2 — Mood Match · weight 0.20 · categorical
+
+if song.mood == user.favorite_mood  → +0.20
+else                                → +0.00
+Why: Mood is a high-signal label that directly reflects listening context
+("focused", "euphoric", "melancholic"). It is used as a binary bonus rather
+than a distance metric because mood categories are not ordered — the distance
+between "happy" and "angry" is not meaningfully larger than between
+"happy" and "relaxed".
+
+Rule 3 — Energy Proximity · weight 0.25 · Gaussian distance
+
+energy_score = exp( -( (song.energy - user.target_energy)² ) / (2 × 0.20²) )
+contribution = energy_score × 0.25
+Distance from target	Score contribution
+0.00 (perfect)	0.250
+0.10	0.238
+0.20	0.207
+0.40	0.103
+0.51+	< 0.070
+Why: Energy has the widest spread in the dataset (0.22–0.96) and is the
+strongest single axis of musical "vibe". Gaussian scoring rewards near-matches
+generously and degrades smoothly — no hard cutoff.
+
+Rule 4 — Acoustic Preference · weight 0.15 · Gaussian distance
+
+acoustic_score = exp( -( (song.acousticness - user.target_acousticness)² ) / (2 × 0.25²) )
+contribution   = acoustic_score × 0.15
+Why: Uses a wider sigma (0.25 vs 0.20) because sonic texture is more
+subjective than energy intensity — a slightly off-target acousticness value
+is more forgivable than a significantly mismatched energy. This replaces the
+original binary likes_acoustic threshold to eliminate the hard cliff at 0.60.
+
+Rule 5 — Valence Proximity · weight 0.15 · Gaussian distance
+
+valence_score = exp( -( (song.valence - user.target_valence)² ) / (2 × 0.20²) )
+contribution  = valence_score × 0.15
+Why: Valence (emotional positivity) defines the upper-left vs lower-right
+quadrants of the energy × mood space. Without it, a high-energy "euphoric"
+song and a high-energy "angry" song score identically on Rule 3 alone.
+
+Step 3 — Compute Total Score
+
+total_score = genre_score        (0.00 – 0.25)
+            + mood_score         (0.00 – 0.20)
+            + energy_score       (0.00 – 0.25)
+            + acoustic_score     (0.00 – 0.15)
+            + valence_score      (0.00 – 0.15)
+            ──────────────────────────────────
+              range: 0.00 – 1.00
+
+Weight justification:
+
+Rule	Weight	Rationale
+Energy	0.25	Largest spread; strongest vibe signal
+Genre	0.25	Strongest user intent signal
+Mood	0.20	High signal but coarse; categorical only
+Acousticness	0.15	Important texture but more forgiving
+Valence	0.15	Refines emotion within energy band
+Step 4 — Rank and Select
+
+1. Collect (song, score) pairs for all 18 songs
+2. Sort descending by score
+3. Slice top-k results
+4. Return as list of (song, score, explanation) tuples
+Step 5 — Generate Explanation String
+For each returned song, build a human-readable reason:
+
+
+def explain_recommendation(user, song, score):
+    parts = []
+
+    if song.genre == user["favorite_genre"]:
+        parts.append(f"Matched your {song.genre} preference.")
+    elif song.genre == user.get("secondary_genre"):
+        parts.append(f"Close to your taste — {song.genre} fits your secondary preference.")
+
+    if song.mood == user["favorite_mood"]:
+        parts.append(f"Mood '{song.mood}' is exactly what you wanted.")
+
+    energy_gap = abs(song.energy - user["target_energy"])
+    if energy_gap <= 0.10:
+        parts.append(f"Energy {song.energy:.2f} is very close to your target {user['target_energy']:.2f}.")
+    elif energy_gap <= 0.25:
+        parts.append(f"Energy {song.energy:.2f} is reasonably close to your target {user['target_energy']:.2f}.")
+    else:
+        parts.append(f"Energy {song.energy:.2f} is far from your target {user['target_energy']:.2f}.")
+
+    return " ".join(parts)
+Example output for Focus Flow (score = 0.94):
+
+"Matched your lofi preference. Mood 'focused' is exactly what you wanted.
+Energy 0.40 is very close to your target 0.42."
+
+Example output for Storm Runner (score = 0.19):
+
+"Genre 'rock' does not match your preferences. Energy 0.91 is far from
+your target 0.42."
+
+Full Pipeline at a Glance
+
+songs.csv  ──►  load_songs()  ──►  [Song, Song, ...]
+                                          │
+                                          ▼
+user_profile  ──────────────►  score_song(song, user)  × 18
+                                          │
+                                          ▼
+                               [(song, 0.94), (song, 0.67), ...]
+                                          │
+                                          ▼
+                               sort descending → slice [:k]
+                                          │
+                                          ▼
+                               [(song, score, explanation), ...]
+                                          │
+                                          ▼
+                               main.py prints top-k results
