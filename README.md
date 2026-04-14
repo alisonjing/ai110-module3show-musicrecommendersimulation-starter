@@ -262,15 +262,19 @@ The most surprising result across all six was Profile 3: the system produced no 
 
 ## Limitations and Risks
 
-Summarize some limitations of your recommender.
+**Tiny catalog with thin genre coverage.** The catalog has 18 songs. Most genres are represented by exactly one track. Any user who prefers a niche genre is guaranteed that one song as their top result no matter how poorly it fits their mood or energy. You cannot get diverse recommendations when there is nothing to diversify across.
 
-Examples:
+**Genre weight can override everything else.** Even after halving the genre bonus from 2.0 to 1.0, a genre match still contributes a fixed chunk of points that mood and energy have to fight against. A user who requests chill, low-energy rock will receive an intense, high-energy rock track at #1 simply because it is the only rock song in the catalog. The label matters more than the vibe.
 
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
+**Silent failure on unknown mood or genre labels.** If a user types a mood or genre that does not exist in the catalog, the system produces no warning and silently treats that preference as zero points for every song. The user has no way of knowing their input was ignored. Results look normal but are missing an entire dimension of filtering.
 
-You will go deeper on this in your model card.
+**Energy midpoint is nearly useless as a tiebreaker.** At `target_energy = 0.5`, songs across completely unrelated genres cluster at nearly identical energy scores. The signal loses all discriminating power exactly in the middle of its range, where many listeners naturally land.
+
+**Does not understand what music sounds like.** The system scores songs entirely on labeled metadata — strings and floats assigned by a human. It has no concept of actual audio texture, instrumentation, rhythm feel, or lyrical content. Two songs with the same genre and energy label can sound nothing alike, and the system cannot tell them apart.
+
+**No input validation or graceful error handling.** There is no check that `target_energy` is between 0 and 1, that genre and mood strings are non-empty, or that the CSV loaded correctly. Bad input produces bad output silently.
+
+**No diversity in results.** The same five songs appear every time for the same profile. There is no mechanism to prevent the same artist from appearing twice, introduce occasional variety, or balance familiarity against discovery. A real user would notice the list feeling thin after a few runs.
 
 ---
 
