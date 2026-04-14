@@ -121,6 +121,68 @@ Top 5 recommendations for the default `pop / happy / 0.8` user profile:
 
 ---
 
+## Stress Test with Diverse Profiles
+
+## Adversarial / Edge Case Profile Results
+
+These profiles were designed to expose unexpected or incorrect behavior in the scoring logic. Each one targets a specific weakness.
+
+---
+
+### Profile 1 — Conflicting: lofi genre + happy mood + high energy (0.9)
+
+**Intent:** The user wants upbeat, high-energy music — but chose `lofi` as their genre.
+**Finding:** Genre weight (2.0) dominates. All top 3 results are quiet lofi/chill songs (energy 0.35–0.42). The best actual match (`Sunrise City`, pop/happy/0.82) falls to #4.
+
+![Profile 1 Results](profile1_result.png)
+
+---
+
+### Profile 2 — Non-existent genre: `jazz` (not in catalog)
+
+**Intent:** Tests what happens when the user's preferred genre has no match in the catalog.
+**Finding:** One jazz song exists (`Coffee Shop Stories`), so it wins at #1 — but it has the wrong mood and energy. Positions #4–#5 score below 1.0 with no genre or mood points at all.
+
+![Profile 2 Results](profile2_result.png)
+
+---
+
+### Profile 3 — Unknown mood: `melancholy` (not in catalog)
+
+**Intent:** Tests what happens when the user's preferred mood string matches no song in the catalog.
+**Finding:** Mood score is permanently 0 for every song — no warning is raised. Top results are pop songs that happen to match genre, regardless of vibe. The spiritually closest song (`3AM Blues`) only reaches #3 via energy proximity.
+
+![Profile 3 Results](profile3_result.png)
+
+---
+
+### Profile 4 — Energy 0.5 (maximum ambiguity midpoint)
+
+**Intent:** Tests whether `target_energy: 0.5` has any discriminating power.
+**Finding:** The top result wins decisively via genre+mood. Positions #3–#5 are a near-tie (0.95–0.98) across unrelated genres — blues, r&b, country — purely from energy proximity. The midpoint makes energy nearly useless as a tiebreaker.
+
+![Profile 4 Results](profile4_result.png)
+
+---
+
+### Profile 5 — Genre dominance: rock + chill mood + low energy (0.2)
+
+**Intent:** Tests whether a wrong-vibe genre match can outrank a near-perfect non-genre match.
+**Finding:** `Storm Runner` (rock/intense/energy 0.91) ranks #1 at 2.29 — mismatching on both mood and energy. `Spacewalk Thoughts` (ambient/chill/energy 0.28), which almost perfectly fits the desired vibe, is pushed to #2 at 1.92.
+
+![Profile 5 Results](profile5_result.png)
+
+---
+
+### Profile 6 — Boundary energy: energy = 0.0 (minimum)
+
+**Intent:** Tests behavior when a user requests the absolute calmest possible music.
+**Finding:** `Sunrise City` (pop/happy/energy 0.82) ranks #1 at 3.18 because genre+mood points (3.0) overwhelm the terrible energy score (0.18). A user requesting silence-adjacent music receives one of the catalog's most energetic songs as the top pick.
+
+![Profile 6 Results](profile6_result.png)
+
+---
+
 ## Getting Started
 
 ### Setup
