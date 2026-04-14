@@ -31,52 +31,29 @@ class UserProfile:
     likes_acoustic: bool
 
 
-# Mood → implied valence target (borrowed from Spotify's affect model)
-_MOOD_VALENCE: Dict[str, float] = {
-    "happy":    0.80,
-    "chill":    0.65,
-    "relaxed":  0.70,
-    "focused":  0.60,
-    "moody":    0.50,
-    "intense":  0.50,
-}
-
 
 def _score_song(song_energy: float, song_valence: float, song_acousticness: float,
                 song_genre: str, song_mood: str,
                 user: UserProfile) -> float:
     """
-    Compute a composite [0, 1] score for one song against a user profile.
+    Compute a raw point score for one song against a user profile.
 
-    Weights:
-      genre match       0.25
-      mood match        0.20
-      energy proximity  0.25
-      acoustic pref     0.15
-      valence bonus     0.15
+    Recipe:
+      +2.0  genre match   (exact)
+      +1.0  mood match    (exact)
+      +0–1  energy similarity = 1.0 - |song.energy - target_energy|
+    Max possible: 4.0
     """
-    # Rule 1 — Genre match (0.25)
-    genre_score = 0.25 if song_genre == user.favorite_genre else 0.0
+    # Rule 1 — Genre match (+2.0)
+    genre_score = 2.0 if song_genre == user.favorite_genre else 0.0
 
-    # Rule 2 — Mood match (0.20)
-    mood_score = 0.20 if song_mood == user.favorite_mood else 0.0
+    # Rule 2 — Mood match (+1.0)
+    mood_score = 1.0 if song_mood == user.favorite_mood else 0.0
 
-    # Rule 3 — Energy proximity (0.25, linear penalty)
-    energy_score = (1.0 - abs(song_energy - user.target_energy)) * 0.25
+    # Rule 3 — Energy similarity (0.0–1.0, linear, higher = closer)
+    energy_score = 1.0 - abs(song_energy - user.target_energy)
 
-    # Rule 4 — Acoustic preference (0.15, binary threshold)
-    if user.likes_acoustic and song_acousticness >= 0.6:
-        acoustic_score = 0.15
-    elif not user.likes_acoustic and song_acousticness < 0.4:
-        acoustic_score = 0.15
-    else:
-        acoustic_score = 0.0
-
-    # Rule 5 — Valence bonus (0.15, inferred target from favorite_mood)
-    target_valence = _MOOD_VALENCE.get(user.favorite_mood, 0.65)
-    valence_score = (1.0 - abs(song_valence - target_valence)) * 0.15
-
-    return genre_score + mood_score + energy_score + acoustic_score + valence_score
+    return genre_score + mood_score + energy_score
 
 
 def _build_explanation(song_genre: str, song_mood: str, song_energy: float,
@@ -85,20 +62,17 @@ def _build_explanation(song_genre: str, song_mood: str, song_energy: float,
     parts = []
 
     if song_genre == user.favorite_genre:
-        parts.append(f"Matched your {song_genre} preference.")
-
-    parts.append(
-        f"Energy {song_energy:.2f} is {'close to' if abs(song_energy - user.target_energy) <= 0.15 else 'near'} "
-        f"your target {user.target_energy:.2f}."
-    )
+        parts.append(f"Genre '{song_genre}' matches your preference (+2.0 pts).")
 
     if song_mood == user.favorite_mood:
-        parts.append(f"Mood '{song_mood}' fits your vibe.")
+        parts.append(f"Mood '{song_mood}' fits your vibe (+1.0 pt).")
 
-    if user.likes_acoustic and song_acousticness >= 0.6:
-        parts.append("High acousticness matches your acoustic preference.")
-    elif not user.likes_acoustic and song_acousticness < 0.4:
-        parts.append("Low acousticness matches your preference for produced sound.")
+    energy_gap = abs(song_energy - user.target_energy)
+    closeness = "very close to" if energy_gap <= 0.10 else "near"
+    parts.append(
+        f"Energy {song_energy:.2f} is {closeness} your target {user.target_energy:.2f} "
+        f"(+{1.0 - energy_gap:.2f} pts)."
+    )
 
     return " ".join(parts)
 
