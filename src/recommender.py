@@ -148,19 +148,28 @@ def load_songs(csv_path: str) -> List[Dict]:
     return songs
 
 
+## Recommending is simply the act of ranking. To find the "best" songs, this function must use the score_song function
+## as a "judge" for every single song in the catalog. Once every song has a numeric score, we can sort the entire list to find the top results.
 def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5) -> List[Tuple[Dict, float, str]]:
     """
-    Functional implementation of the recommendation logic.
+    Score every song, then return the top-k sorted highest to lowest.
     Required by src/main.py
 
-    user_prefs keys used: genre, mood, energy, likes_acoustic (optional, default False)
+    user_prefs keys: genre, mood, energy
     Returns: list of (song_dict, score, explanation) sorted descending by score.
-    """
-    scored = []
-    for song in songs:
-        score, reasons = score_song(user_prefs, song)
-        explanation = " | ".join(reasons)
-        scored.append((song, score, explanation))
 
-    scored.sort(key=lambda x: x[1], reverse=True)
-    return scored[:k]
+    How it works
+    ────────────
+    1. List comprehension — calls score_song() once per song.
+       `for score, reasons in [score_song(...)]` unpacks the two return
+       values inside the comprehension without calling the function twice.
+    2. sorted(..., reverse=True) — produces a new sorted list, highest score first.
+       Preferred over .sort() here because it doesn't mutate and can chain directly.
+    3. [:k] — slice off the top-k results.
+    """
+    scored = [
+        (song, score, " | ".join(reasons))
+        for song in songs
+        for score, reasons in [score_song(user_prefs, song)]
+    ]
+    return sorted(scored, key=lambda result: result[1], reverse=True)[:k]
