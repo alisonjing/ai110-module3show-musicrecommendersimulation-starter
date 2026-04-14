@@ -220,11 +220,43 @@ You can add more tests in `tests/test_recommender.py`.
 
 ## Experiments You Tried
 
-Use this section to document the experiments you ran. For example:
+### Experiment 1 — Halving the genre weight (2.0 → 1.0) and doubling the energy weight
 
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+The original scoring gave genre a fixed bonus of 2.0 points, which meant a genre match alone was worth more than a perfect mood and energy match combined. To test whether that weight was too high, the genre bonus was reduced to 1.0 and the energy score was doubled from `1.0 * (1 - |delta|)` to `2.0 * (1 - |delta|)`, keeping the maximum score at 3.0 instead of 4.0.
+
+The rebalancing fixed three of the four broken adversarial profiles. Most visibly, Profile 5 (rock + chill + low energy 0.2) stopped returning `Storm Runner` (rock/intense/energy 0.91) at the top. With the lower genre weight, `Spacewalk Thoughts` (ambient/chill/energy 0.28) could outscore it on energy proximity. The one profile it did not fix was Profile 6 (energy = 0.0), where genre and mood points still overwhelmed a terrible energy score — the system continued recommending one of the catalog's most energetic songs to a user requesting near-silence.
+
+---
+
+### Experiment 2 — Disabling mood entirely (sensitivity test)
+
+To measure how much work mood was actually doing, the mood score was temporarily zeroed out in `score_song()` while keeping genre and energy active. Every song received 0 mood points regardless of what the user specified.
+
+Four profiles were re-run under this condition:
+
+- **High-Energy Pop** — `Gym Hero` and `Sunrise City` still led on genre + energy, but `Storm Runner` (rock/intense) and `Iron Curtain` (metal/angry) appeared in positions 3–5 purely on energy proximity. Without mood filtering, aggressive metal ranked alongside upbeat pop.
+- **Chill Lofi** — The top 3 stayed correct. But `Porch Light` (folk/nostalgic) and `Spacewalk Thoughts` (ambient/chill) crept into 4–5 over mood-matched lofi songs, again on energy alone.
+- **Deep Intense Rock** — `Storm Runner` correctly led, but positions 2–5 filled with pop, hip-hop, and indie pop with no rock or intense mood — they were there only because their energy was near 0.85.
+- **Late-Night Synthwave** — `Night Drive Loop` led well, but `3AM Blues`, `Empty Highway`, and `Velvet Hours` filled the rest. None are synthwave or moody; they just had mid-range energy. Without mood, the late-night atmosphere was completely lost.
+
+The takeaway was that mood was doing meaningful work for atmosphere-heavy profiles like Synthwave, but was already effectively invisible for any profile using a mood label absent from the catalog (such as "melancholy").
+
+---
+
+### Experiment 3 — Running six adversarial user profiles
+
+Six user profiles were designed specifically to expose failure modes rather than to get good results. Each targeted a different weakness in the scoring logic:
+
+| Profile | Setup | What It Exposed |
+|---|---|---|
+| 1 | lofi + happy + energy 0.9 | Genre weight dominates; quiet lofi songs beat energetic songs every time |
+| 2 | jazz genre (1 song in catalog) | A single catalog entry always wins for niche genres, regardless of mood or energy fit |
+| 3 | mood = "melancholy" (not in catalog) | Unknown mood strings silently zero out with no warning to the user |
+| 4 | energy = 0.5 (midpoint) | Energy becomes useless as a tiebreaker; unrelated genres cluster at near-equal scores |
+| 5 | rock + chill + energy 0.2 | A wrong-vibe genre match outranks a near-perfect non-genre match |
+| 6 | energy = 0.0 (minimum) | Genre + mood points (3.0) overwhelm a terrible energy score; user requesting silence gets an energetic song at #1 |
+
+The most surprising result across all six was Profile 3: the system produced no error and no warning when the mood label did not exist. It simply continued recommending as if mood had never been specified. In a real product, a user would have no way of knowing their preference was being ignored.
 
 ---
 
